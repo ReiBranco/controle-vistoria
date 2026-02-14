@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Controle de Vistoria de Bolsas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f3f4f6;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      margin-bottom: 5px;
+    }
+    .dias {
+      color: #555;
+      margin-bottom: 20px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .loja {
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f9fafb;
+    }
+    .loja.verificada {
+      background: #dcfce7;
+      border-color: #22c55e;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 10px;
+      background: #dc2626;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #b91c1c;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Controle de Vistoria de Bolsas</h1>
+  <p class="dias">
+    Dias restantes no período: <strong id="diasRestantes"></strong>
+  </p>
+  <div class="grid" id="listaLojas"></div>
+  <button onclick="resetarPeriodo()">Resetar Período (15 dias)</button>
+</div>
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbwvWZeXTBxh9O0-cNeVS-zhb5aW5B20doD5umJRjBIJl6KD2batXgr-xYeNS3rIrHyTGw/exec";
+
+  const LOJAS = [1,3,4,5,6,7,8,9,10,11,12,13,14,15,17,18,19,20,21,22,23,25,26,27,28,29,30,31,32,33,34,35,36,37,38,40,42,43,44,45,46,48];
+  const PERIODO_DIAS = 15;
+
+  let status = {};
+  let inicioPeriodo = null;
+
+  function iniciarPeriodo() {
+    status = {};
+    LOJAS.forEach(loja => status[loja] = false);
+    inicioPeriodo = new Date();
+    salvar();
+    render();
+  }
+
+  async function salvar() {
+    await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        status,
+        inicioPeriodo
+      })
+    });
+  }
+
+  async function carregar() {
+    const response = await fetch(API_URL);
+    const texto = await response.text();
+
+    if (!texto) {
+      iniciarPeriodo();
+      return;
+    }
+
+    const dados = JSON.parse(texto);
+
+    if (dados.status) {
+      status = dados.status;
+      inicioPeriodo = new Date(dados.inicioPeriodo);
+    } else {
+      iniciarPeriodo();
+    }
+  }
+
+  function toggleLoja(loja) {
+    status[loja] = !status[loja];
+    salvar();
+    render();
+  }
+
+  function diasRestantes() {
+    const agora = new Date();
+    const diff = Math.floor((agora - inicioPeriodo) / (1000 * 60 * 60 * 24));
+    return Math.max(PERIODO_DIAS - diff, 0);
+  }
+
+  function resetarPeriodo() {
+    if (confirm("Deseja iniciar um novo período de 15 dias?")) {
+      iniciarPeriodo();
+    }
+  }
+
+  function render() {
+    document.getElementById("diasRestantes").innerText = diasRestantes();
+
+    const container = document.getElementById("listaLojas");
+    container.innerHTML = "";
+
+    LOJAS.forEach(loja => {
+      const div = document.createElement("div");
+      div.className = "loja" + (status[loja] ? " verificada" : "");
+      div.onclick = () => toggleLoja(loja);
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = status[loja];
+      checkbox.onclick = (e) => e.stopPropagation();
+
+      const label = document.createElement("span");
+      label.innerText = "Loja " + loja;
+
+      div.appendChild(checkbox);
+      div.appendChild(label);
+      container.appendChild(div);
+    });
+  }
+
+  async function iniciar() {
+    await carregar();
+    render();
+  }
+
+  iniciar();
+</script>
+</body>
+</html>
